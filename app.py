@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+import requests
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -43,7 +44,9 @@ def format_number(val):
 if ticker_input:
     with st.spinner('กำลังประมวลผลข้อมูลโครงสร้างมินิมอลพรีเมียม...'):
         try:
-            stock = yf.Ticker(ticker_input)
+            session = requests.Session()
+            session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'})
+            stock = yf.Ticker(ticker_input, session=session)
             info = stock.info
             # ดึงข้อมูล 1 ปีตามคำขอ เพื่อความรวดเร็วในการโหลดข้อมูลสูงสุด
             hist = stock.history(period="1y")
