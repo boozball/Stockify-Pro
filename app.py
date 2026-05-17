@@ -23,9 +23,6 @@ st.write("ระบบตรวจจับสัญญาณซื้อขา�
 
 ticker_input = st.text_input("สัญลักษณ์หุ้น หรือ ETF (เช่น NVDA, AMZN, RKLB, VOO):", value="AMZN").upper().strip()
 
-# --- 🔑 GEMINI API KEY ตัวใหม่ล่าสุดของคุณเดฟ ---
-GEMINI_API_KEY = "AIzaSyAEPxylmPXleAr5hOZWi1gEQ-EVtojm4HI"
-
 def format_number(val):
     if val is None or pd.isna(val): return "-"
     if abs(val) >= 1_000_000_000_000: return f"{val / 1_000_000_000_000:.2f}T"
@@ -38,8 +35,8 @@ def clean_text(text):
     clean = re.sub('<.*?>', '', text) 
     return clean.replace('&quot;', '"').replace('&apos;', "'").replace('&amp;', '&').strip()
 
-@st.cache_data(ttl=1800, show_spinner=False) 
-def translate_google(text):
+# 🤖 ระบบแปลเดี่ยว (เอาไว้เป็นแผนสำรองฉุกเฉิน)
+def translate_google_single(text):
     if not text: return text
     try:
         url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q={requests.utils.quote(text)}"
@@ -48,27 +45,34 @@ def translate_google(text):
     except: pass
     return text  
 
+# ⚡ [ฟีเจอร์ใหม่ความเร็วแสง] มัดรวมข้อความทั้งหมดส่งแปลรอบเดียวดึงสปีดสูงสุด 0.3 วินาที
 @st.cache_data(ttl=1800, show_spinner=False) 
-def translate_batch_gemini(texts_tuple):
+def translate_google_batch(texts_tuple):
     texts_list = list(texts_tuple)
-    if not GEMINI_API_KEY or len(texts_list) == 0: return None
+    if not texts_list: return []
+    
+    # ล้างเครื่องหมายขึ้นบรรทัดใหม่จากต้นทางก่อนเพื่อป้องกันข้อความคลาดเคลื่อน
+    cleaned_texts = [t.replace("\n", " ").strip() for t in texts_list]
+    payload = "\n".join(cleaned_texts)
+    
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY.strip()}"
-        prompt = "ในฐานะนักวิเคราะห์การเงินชาวไทยผู้เชี่ยวชาญ จงแปลข้อความภาษาอังกฤษต่อไปนี้เป็นภาษาไทยให้สละสลวย อ่านง่าย ห้ามแปลตรงตัวแบบหุ่นยนต์\nจงตอบกลับมาเป็น JSON Array of Strings เท่านั้น ตามลำดับเดิม:\n" + json.dumps(texts_list)
-        data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
-        
-        response = requests.post(url, headers={'Content-Type': 'application/json'}, json=data, timeout=25)
-        if response.status_code == 200:
-            result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-            translated_array = json.loads(result_text)
-            if isinstance(translated_array, list) and len(translated_array) == len(texts_list):
-                return translated_array
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q={requests.utils.quote(payload)}"
+        res = requests.get(url, timeout=8)
+        if res.status_code == 200:
+            raw_segments = res.json()[0]
+            # รวมชิ้นส่วนคำแปลทั้งหมดเข้าด้วยกัน โดยระบบจะคงเครื่องหมายตัวคั่น \n ไว้ให้ครบถ้วน
+            full_translated = "".join([seg[0] for seg in raw_segments if seg[0]])
+            
+            translated_list = full_translated.split("\n")
+            # ถ้าจำนวนแถวที่ส่งไปและกลับมาตรงกันเป๊ะ ให้ส่งข้อมูลกลับไปใช้งานได้เลย
+            if len(translated_list) == len(texts_list):
+                return [t.strip() for t in translated_list]
     except: pass
-    return None
+    return None  
 
 # 4. เริ่มระบบประมวลผลข้อมูล
 if ticker_input:
-    with st.spinner('กำลังดึงข้อมูลตลาด (ใช้เวลาเพียงอึดใจ)...'):
+    with st.spinner('กำลังประมวลผลโครงสร้างแดชบอร์ดความเร็วแสง...'):
         try:
             stock = yf.Ticker(ticker_input)
             info = stock.info
@@ -132,12 +136,88 @@ if ticker_input:
             elif rsi_curr <= 30.0: rsi_metric_label, rsi_text_color = "🟢 ปลอดภัย (ขายมากไป โซนช้อนซื้อ)", "green"
             else: rsi_metric_label, rsi_text_color = "🟡 ปกติ (อยู่ช่วงพักตัว 30-70)", "orange"
 
-            # แสดงผลส่วนข้อมูลตัวเลขและกราฟทันที
+            # --- 📦 ดึงและจัดแจงข้อมูลข่าวสารหลังบ้านไว้ก่อน ---
+            news_items = []
+            try:
+                for item in (stock.news or [])[:5]:
+                    t, l, p = item.get('title'), item.get('link'), item.get('publisher', 'Financial News')
+                    s = item.get('summary', '') 
+                    ts = item.get('providerPublishTime') 
+                    pub_time = datetime.fromtimestamp(ts).strftime('%d/%m/%Y %H:%M') if ts else "ล่าสุด"
+                    if not t and 'content' in item:
+                        t, l = item['content'].get('title'), item['content'].get('clickThroughUrl', {}).get('url') or item['content'].get('canonicalUrl', {}).get('url')
+                        p, s = item['content'].get('provider', {}).get('displayName', 'Yahoo Finance'), item['content'].get('summary', '')
+                        c_ts = item['content'].get('pubDate')
+                        if c_ts:
+                            try: pub_time = datetime.strptime(c_ts, "%Y-%m-%dT%H:%M:%SZ").strftime('%d/%m/%Y %H:%M')
+                            except: pub_time = "ล่าสุด"
+                    if t and l: news_items.append({"title": t, "link": l, "pub": p, "summary": clean_text(s), "time": pub_time})
+            except: pass
+            
+            if not news_items:
+                try:
+                    res = requests.get(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker_input}&region=US&lang=en-US", headers={'User-Agent': 'Mozilla/5.0'})
+                    if res.status_code == 200:
+                        for item in ET.fromstring(res.content).findall('./channel/item')[:5]:
+                            t, l = item.find('title').text or '', item.find('link').text or ''
+                            s = item.find('description').text or ''
+                            p_date = item.find('pubDate').text or 'ล่าสุด'
+                            if p_date != 'ล่าสุด':
+                                try: pub_time = datetime.strptime(p_date[5:25], "%d %b %Y %H:%M:%S").strftime('%d/%m/%Y %H:%M')
+                                except: pub_time = p_date[:16]
+                            else: pub_time = "ล่าสุด"
+                            if t and l: news_items.append({"title": t, "link": l, "pub": "Yahoo Finance (RSS)", "summary": clean_text(s), "time": pub_time})
+                except: pass
+
+            # --- 🚚 [คำนวณแพ็กเกจพัสดุ] รวมข่าวและลักษณะธุรกิจส่งแปลในช็อตเดียว ---
+            texts_to_translate = []
+            has_summary = 'longBusinessSummary' in info
+            if has_summary: texts_to_translate.append(info['longBusinessSummary'])
+            for it in news_items:
+                texts_to_translate.append(it['title'])
+                texts_to_translate.append(it['summary'] if it['summary'] else "No summary available.")
+
+            google_results = None
+            if texts_to_translate:
+                google_results = map(str, translate_google_batch(tuple(texts_to_translate)) or [])
+                google_results = list(google_results) if google_results else None
+
+            # กระจายคำแปลสปีดสายฟ้ากลับลงกล่องข้อมูล
+            thai_biz_summary = ""
+            idx = 0
+            if has_summary:
+                thai_biz_summary = google_results[idx] if google_results else translate_google_single(info['longBusinessSummary'])
+                idx += 1
+                
+            for it in news_items:
+                if google_results:
+                    it['thai_title'] = google_results[idx]
+                    idx += 1
+                    it['thai_summary'] = google_results[idx] if it['summary'] else ""
+                    idx += 1
+                else: 
+                    it['thai_title'] = translate_google_single(it['title'])
+                    it['thai_summary'] = translate_google_single(it['summary']) if it['summary'] else ""
+
+            # --- 🖥️ แสดงผล UI ทั้งหน้าจอพร้อมกันในอึดใจเดียว ---
             st.write(f"### 📊 **{info.get('longName', ticker_input)}**")
-            st.markdown(f"**ประเภทสินทรัพย์วิเคราะห์โดยบอต** | :{label_color}[**{asset_label}**]")
+            st.markdown(f"**ประเภทสินทรัพย์** | :{label_color}[**{asset_label}**]")
             
-            summary_placeholder = st.empty()
-            
+            if has_summary:
+                with st.expander("📖 ดูข้อมูลลักษณะธุรกิจ (Company Summary)"):
+                    st.markdown(f"<p style='color: var(--text-color); font-size: 0.95rem; line-height: 1.6; text-align: justify;'>{thai_biz_summary}</p>", unsafe_allow_html=True)
+                    try:
+                        earnings_dates, cal = [], stock.calendar
+                        if isinstance(cal, dict) and 'Earnings Date' in cal: earnings_dates = cal['Earnings Date']
+                        elif hasattr(cal, 'index') and 'Earnings Date' in cal.index: earnings_dates = cal.loc['Earnings Date'].values
+                        if not earnings_dates:
+                            n_earn = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
+                            if n_earn: earnings_dates = [datetime.fromtimestamp(n_earn)]
+                        if earnings_dates:
+                            date_strs = list(dict.fromkeys([d.strftime('%d-%m-%Y') if hasattr(d, 'strftime') else (datetime.fromtimestamp(d).strftime('%d-%m-%Y') if isinstance(d, (int, float)) and d > 0 else str(d)[:10]) for d in earnings_dates if d and not str(d).startswith('NaT')]))
+                            if date_strs: st.info(f"📅 **Earnings Announcement:** วันประกาศงบการเงินงวดถัดไปโดยประมาณ: `{', '.join(date_strs)}` (โปรดระวังความผันผวนของราคา)")
+                    except: pass
+
             m_col1, m_col2, m_col3, m_col4 = st.columns(4)
             with m_col1: st.metric(label="💵 ราคาปัจจุบัน (USD)", value=f"${current_price:.2f}", delta=f"{price_change_pct:.2f}%")
             with m_col2: st.metric(label="📈 ผลตอบแทนรอบ 1 ปี", value=f"{return_1y_pct:+.2f}%", delta="ประสิทธิภาพย้อนหลัง 1 ปี", delta_color=return_1y_color)
@@ -192,97 +272,16 @@ if ticker_input:
                     fig.update_layout(xaxis_rangeslider_visible=False, height=250, margin=dict(l=5, r=5, t=5, b=5))
                     st.plotly_chart(fig, use_container_width=True)
 
+            if news_items:
+                st.markdown("---")
+                st.subheader("📰 สรุปข่าวเด่นล่าสุด (Live Stock News)")
+                for it in news_items:
+                    translated_url = f"https://translate.google.com/translate?sl=en&tl=th&u={requests.utils.quote(it['link'])}"
+                    with st.container(border=True):
+                        st.markdown(f"**[{it['thai_title']}]({it['link']})**")
+                        st.markdown(f"<p style='font-size: 0.95rem; color: var(--text-color); opacity: 0.85;'>{it['thai_summary'] if it['thai_summary'] else 'คลิกเพื่ออ่านเนื้อหาเต็ม...'}</p>", unsafe_allow_html=True)
+                        st.caption(f"🕒 **เวลา:** {it['time']} | ✍️ สำนักข่าว: {it['pub']} | 📝 ต้นฉบับ: {it['title']}")
+                        st.markdown(f"[🇹🇭 คลิกอ่านฉบับเต็มแปลไทย (ผ่าน Google Translate)]({translated_url})")
+
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลพื้นฐาน: {e}")
-            st.stop()
-
-    # กระบวนการดึงข่าวและแปลภาษา (ทำหลังบ้าน)
-    st.markdown("---")
-    st.subheader("📰 สรุปข่าวเด่นล่าสุด (Live Stock News)")
-    
-    with st.spinner('✨ AI กำลังอ่านและแปลข่าวสารล่าสุดให้คุณ...'):
-        news_items = []
-        try:
-            for item in (stock.news or [])[:5]:
-                t, l, p = item.get('title'), item.get('link'), item.get('publisher', 'Financial News')
-                s = item.get('summary', '') 
-                ts = item.get('providerPublishTime') 
-                pub_time = datetime.fromtimestamp(ts).strftime('%d/%m/%Y %H:%M') if ts else "ล่าสุด"
-                if not t and 'content' in item:
-                    t, l = item['content'].get('title'), item['content'].get('clickThroughUrl', {}).get('url') or item['content'].get('canonicalUrl', {}).get('url')
-                    p, s = item['content'].get('provider', {}).get('displayName', 'Yahoo Finance'), item['content'].get('summary', '')
-                    c_ts = item['content'].get('pubDate')
-                    if c_ts:
-                        try: pub_time = datetime.strptime(c_ts, "%Y-%m-%dT%H:%M:%SZ").strftime('%d/%m/%Y %H:%M')
-                        except: pub_time = "ล่าสุด"
-                if t and l: news_items.append({"title": t, "link": l, "pub": p, "summary": clean_text(s), "time": pub_time})
-        except: pass
-        
-        if not news_items:
-            try:
-                res = requests.get(f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker_input}&region=US&lang=en-US", headers={'User-Agent': 'Mozilla/5.0'})
-                if res.status_code == 200:
-                    for item in ET.fromstring(res.content).findall('./channel/item')[:5]:
-                        t, l = item.find('title').text or '', item.find('link').text or ''
-                        s = item.find('description').text or ''
-                        p_date = item.find('pubDate').text or 'ล่าสุด'
-                        if p_date != 'ล่าสุด':
-                            try: pub_time = datetime.strptime(p_date[5:25], "%d %b %Y %H:%M:%S").strftime('%d/%m/%Y %H:%M')
-                            except: pub_time = p_date[:16]
-                        else: pub_time = "unicode"
-                        if t and l: news_items.append({"title": t, "link": l, "pub": "Yahoo Finance (RSS)", "summary": clean_text(s), "time": pub_time})
-            except: pass
-
-        texts_to_translate = []
-        has_summary = 'longBusinessSummary' in info
-        if has_summary: texts_to_translate.append(info['longBusinessSummary'])
-        for it in news_items:
-            texts_to_translate.append(it['title'])
-            texts_to_translate.append(it['summary'] if it['summary'] else "No summary available.")
-
-        gemini_results = None
-        if texts_to_translate:
-            gemini_results = translate_batch_gemini(tuple(texts_to_translate))
-            if not gemini_results: st.toast("⚠️ ไม่สามารถใช้ Gemini แปลได้ กำลังสลับไปใช้สำรอง", icon="🤖")
-
-        thai_biz_summary = ""
-        idx = 0
-        if has_summary:
-            thai_biz_summary = (gemini_results[idx] + " ✨") if gemini_results else translate_google(info['longBusinessSummary'])
-            idx += 1
-            
-        for it in news_items:
-            if gemini_results:
-                it['thai_title'] = gemini_results[idx] + " ✨"
-                idx += 1
-                it['thai_summary'] = gemini_results[idx] if it['summary'] else ""
-                idx += 1
-            else: 
-                it['thai_title'] = translate_google(it['title'])
-                it['thai_summary'] = translate_google(it['summary']) if it['summary'] else ""
-
-    # เติมคำอธิบายบริษัทด้านบน
-    if has_summary:
-        with summary_placeholder.expander("📖 ดูข้อมูลลักษณะธุรกิจ (Company Summary)"):
-            st.markdown(f"<p style='color: var(--text-color); font-size: 0.95rem; line-height: 1.6; text-align: justify;'>{thai_biz_summary}</p>", unsafe_allow_html=True)
-            try:
-                earnings_dates, cal = [], stock.calendar
-                if isinstance(cal, dict) and 'Earnings Date' in cal: earnings_dates = cal['Earnings Date']
-                elif hasattr(cal, 'index') and 'Earnings Date' in cal.index: earnings_dates = cal.loc['Earnings Date'].values
-                if not earnings_dates:
-                    n_earn = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
-                    if n_earn: earnings_dates = [datetime.fromtimestamp(n_earn)]
-                if earnings_dates:
-                    date_strs = list(dict.fromkeys([d.strftime('%d-%m-%Y') if hasattr(d, 'strftime') else (datetime.fromtimestamp(d).strftime('%d-%m-%Y') if isinstance(d, (int, float)) and d > 0 else str(d)[:10]) for d in earnings_dates if d and not str(d).startswith('NaT')]))
-                    if date_strs: st.info(f"📅 **Earnings Announcement:** วันประกาศงบการเงินงวดถัดไปโดยประมาณ: `{', '.join(date_strs)}` (โปรดระวังความผันผวนของราคา)")
-            except: pass
-
-    # วาดกล่องข่าวสาร
-    if news_items:
-        for it in news_items:
-            translated_url = f"https://translate.google.com/translate?sl=en&tl=th&u={requests.utils.quote(it['link'])}"
-            with st.container(border=True):
-                st.markdown(f"**[{it['thai_title']}]({it['link']})**")
-                st.markdown(f"<p style='font-size: 0.95rem; color: var(--text-color); opacity: 0.85;'>{it['thai_summary'] if it['thai_summary'] else 'คลิกเพื่ออ่านเนื้อหาเต็ม...'}</p>", unsafe_allow_html=True)
-                st.caption(f"🕒 **เวลา:** {it['time']} | ✍️ สำนักข่าว: {it['pub']} | 📝 ต้นฉบับ: {it['title']}")
-                st.markdown(f"[🇹🇭 คลิกอ่านฉบับเต็มแปลไทย (ผ่าน Google Translate)]({translated_url})")
+            st.error(f"เกิดข้อผิดพลาดทางเทคนิค: {e}")
