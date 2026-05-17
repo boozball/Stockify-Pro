@@ -12,9 +12,114 @@ import json
 # 1. ตั้งค่าหน้าจอแบบกว้างพิเศษหน้าเดียวจบ
 st.set_page_config(page_title="Stockify Pro Ultimate", page_icon="📈", layout="wide")
 
+# --- 🎨 THE ABSOLUTE BEST - 10/10 Ultimate Masterpiece CSS Injection ---
 st.markdown("""
     <style>
-        .adaptive-advice-box { padding: 12px; background-color: var(--secondary-background-color); border-radius: 6px; margin-top: 5px; border: 1px solid var(--border-color); }
+        /* นำเข้าฟอนต์และปรับระบบการเรนเดอร์ตัวหนังสือให้คมชัดระดับพิกเซล */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* กล่องข้อมูลแถวบนสุดระดับพรีเมียม (Uniform Metric Cards) */
+        .premium-metric-card {
+            background-color: var(--secondary-background-color);
+            padding: 18px 22px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 122px; /* ล็อกความสูงเท่ากันทุกกล่อง */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .premium-metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.03);
+        }
+        .metric-label {
+            font-size: 0.85rem;
+            color: var(--text-color);
+            opacity: 0.65;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 4px 0;
+            letter-spacing: -0.5px;
+        }
+        .metric-delta {
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* แถวแสดงข้อมูลการเงินสไตล์แอปสตรีมมิ่งหุ้นระดับโปร */
+        .financial-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            transition: background-color 0.15s ease;
+            border-radius: 6px;
+        }
+        .financial-row:hover {
+            background-color: rgba(59, 130, 246, 0.04); /* ไฮไลต์สีฟ้าใสเวลาเมาส์ชี้ */
+        }
+        .financial-row:last-child {
+            border-bottom: none;
+        }
+        .financial-label {
+            color: var(--text-color);
+            opacity: 0.75;
+            font-weight: 400;
+        }
+        .financial-value {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* การ์ดข่าวพรีเมียมคลาสสิก */
+        .premium-news-card {
+            background-color: var(--secondary-background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .premium-news-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.08);
+            border-color: #3B82F6;
+        }
+        
+        .premium-news-link {
+            display: inline-block;
+            font-size: 0.88rem;
+            color: #2563EB;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 8px;
+            transition: color 0.2s;
+        }
+        .premium-news-link:hover {
+            color: #1D4ED8;
+            text-decoration: underline;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -35,7 +140,7 @@ def clean_text(text):
     clean = re.sub('<.*?>', '', text) 
     return clean.replace('&quot;', '"').replace('&apos;', "'").replace('&amp;', '&').strip()
 
-# 🤖 ระบบแปลเดี่ยว (เอาไว้เป็นแผนสำรองฉุกเฉิน)
+@st.cache_data(ttl=1800, show_spinner=False) 
 def translate_google_single(text):
     if not text: return text
     try:
@@ -45,26 +150,19 @@ def translate_google_single(text):
     except: pass
     return text  
 
-# ⚡ [ฟีเจอร์ใหม่ความเร็วแสง] มัดรวมข้อความทั้งหมดส่งแปลรอบเดียวดึงสปีดสูงสุด 0.3 วินาที
 @st.cache_data(ttl=1800, show_spinner=False) 
 def translate_google_batch(texts_tuple):
     texts_list = list(texts_tuple)
     if not texts_list: return []
-    
-    # ล้างเครื่องหมายขึ้นบรรทัดใหม่จากต้นทางก่อนเพื่อป้องกันข้อความคลาดเคลื่อน
     cleaned_texts = [t.replace("\n", " ").strip() for t in texts_list]
     payload = "\n".join(cleaned_texts)
-    
     try:
         url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q={requests.utils.quote(payload)}"
         res = requests.get(url, timeout=8)
         if res.status_code == 200:
             raw_segments = res.json()[0]
-            # รวมชิ้นส่วนคำแปลทั้งหมดเข้าด้วยกัน โดยระบบจะคงเครื่องหมายตัวคั่น \n ไว้ให้ครบถ้วน
             full_translated = "".join([seg[0] for seg in raw_segments if seg[0]])
-            
             translated_list = full_translated.split("\n")
-            # ถ้าจำนวนแถวที่ส่งไปและกลับมาตรงกันเป๊ะ ให้ส่งข้อมูลกลับไปใช้งานได้เลย
             if len(translated_list) == len(texts_list):
                 return [t.strip() for t in translated_list]
     except: pass
@@ -86,7 +184,7 @@ if ticker_input:
             prev_price = hist['Close'].iloc[-2]
             price_change_pct = ((current_price - prev_price) / prev_price) * 100
             return_1y_pct = ((current_price - hist['Close'].iloc[0]) / hist['Close'].iloc[0]) * 100
-            return_1y_color = "normal" if return_1y_pct >= 0 else "inverse"
+            return_1y_color = "#10B981" if return_1y_pct >= 0 else "#EF4444"
             
             is_etf = info.get('quoteType', 'EQUITY') == 'ETF'
             hist['EMA20'] = hist['Close'].ewm(span=20, adjust=False).mean()
@@ -132,11 +230,11 @@ if ticker_input:
             elif rsi_curr > 73: advice_text, advice_color = "ถือ / ระวังแรงขายทำกำไรระยะสั้น (Hold) 🟠", "#F97316"
             else: advice_text, advice_color = "ถือเพื่อรอดูแนวโน้ม (Hold) 🔵", "#3B82F6"
             
-            if rsi_curr >= 70.0: rsi_metric_label, rsi_text_color = "🚨 อันตราย (ซื้อมากไป Overbought)", "red"
-            elif rsi_curr <= 30.0: rsi_metric_label, rsi_text_color = "🟢 ปลอดภัย (ขายมากไป โซนช้อนซื้อ)", "green"
-            else: rsi_metric_label, rsi_text_color = "🟡 ปกติ (อยู่ช่วงพักตัว 30-70)", "orange"
+            if rsi_curr >= 70.0: rsi_metric_label, rsi_text_color = "🚨 อันตราย (Overbought)", "#EF4444"
+            elif rsi_curr <= 30.0: rsi_metric_label, rsi_text_color = "🟢 ปลอดภัย (โซนช้อนซื้อ)", "#10B981"
+            else: rsi_metric_label, rsi_text_color = "🟡 ปกติ (ช่วงพักตัว 30-70)", "#F59E0B"
 
-            # --- 📦 ดึงและจัดแจงข้อมูลข่าวสารหลังบ้านไว้ก่อน ---
+            # --- 📦 ระบบจัดแจงคัดกรองข่าวสาร ---
             news_items = []
             try:
                 for item in (stock.news or [])[:5]:
@@ -169,7 +267,6 @@ if ticker_input:
                             if t and l: news_items.append({"title": t, "link": l, "pub": "Yahoo Finance (RSS)", "summary": clean_text(s), "time": pub_time})
                 except: pass
 
-            # --- 🚚 [คำนวณแพ็กเกจพัสดุ] รวมข่าวและลักษณะธุรกิจส่งแปลในช็อตเดียว ---
             texts_to_translate = []
             has_summary = 'longBusinessSummary' in info
             if has_summary: texts_to_translate.append(info['longBusinessSummary'])
@@ -182,7 +279,6 @@ if ticker_input:
                 google_results = map(str, translate_google_batch(tuple(texts_to_translate)) or [])
                 google_results = list(google_results) if google_results else None
 
-            # กระจายคำแปลสปีดสายฟ้ากลับลงกล่องข้อมูล
             thai_biz_summary = ""
             idx = 0
             if has_summary:
@@ -199,65 +295,129 @@ if ticker_input:
                     it['thai_title'] = translate_google_single(it['title'])
                     it['thai_summary'] = translate_google_single(it['summary']) if it['summary'] else ""
 
-            # --- 🖥️ แสดงผล UI ทั้งหน้าจอพร้อมกันในอึดใจเดียว ---
+            # --- 🖥️ ส่วนวาดการแสดงผลบนหน้าจอ ---
             st.write(f"### 📊 **{info.get('longName', ticker_input)}**")
             st.markdown(f"**ประเภทสินทรัพย์** | :{label_color}[**{asset_label}**]")
             
             if has_summary:
                 with st.expander("📖 ดูข้อมูลลักษณะธุรกิจ (Company Summary)"):
                     st.markdown(f"<p style='color: var(--text-color); font-size: 0.95rem; line-height: 1.6; text-align: justify;'>{thai_biz_summary}</p>", unsafe_allow_html=True)
-                    try:
-                        earnings_dates, cal = [], stock.calendar
-                        if isinstance(cal, dict) and 'Earnings Date' in cal: earnings_dates = cal['Earnings Date']
-                        elif hasattr(cal, 'index') and 'Earnings Date' in cal.index: earnings_dates = cal.loc['Earnings Date'].values
-                        if not earnings_dates:
-                            n_earn = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
-                            if n_earn: earnings_dates = [datetime.fromtimestamp(n_earn)]
-                        if earnings_dates:
-                            date_strs = list(dict.fromkeys([d.strftime('%d-%m-%Y') if hasattr(d, 'strftime') else (datetime.fromtimestamp(d).strftime('%d-%m-%Y') if isinstance(d, (int, float)) and d > 0 else str(d)[:10]) for d in earnings_dates if d and not str(d).startswith('NaT')]))
-                            if date_strs: st.info(f"📅 **Earnings Announcement:** วันประกาศงบการเงินงวดถัดไปโดยประมาณ: `{', '.join(date_strs)}` (โปรดระวังความผันผวนของราคา)")
-                    except: pass
 
-            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-            with m_col1: st.metric(label="💵 ราคาปัจจุบัน (USD)", value=f"${current_price:.2f}", delta=f"{price_change_pct:.2f}%")
-            with m_col2: st.metric(label="📈 ผลตอบแทนรอบ 1 ปี", value=f"{return_1y_pct:+.2f}%", delta="ประสิทธิภาพย้อนหลัง 1 ปี", delta_color=return_1y_color)
-            with m_col3: st.metric(label="⚡ ดัชนี RSI (14 วัน)", value=f"{rsi_curr:.2f}", delta=rsi_metric_label, delta_color="off")
-            with m_col4: st.markdown(f"<div class='adaptive-advice-box' style='border-left: 5px solid {advice_color};'><span style='color: var(--text-color); opacity: 0.6; font-size: 13px;'>🤖 ระบบแนะนำการลงทุน</span><br><strong style='color: var(--text-color); font-size: 18px;'>{advice_text}</strong></div>", unsafe_allow_html=True)
+            # คอลัมน์แถวบนบีบกระชับชิดติดกัน (Compact Grid)
+            m_col1, m_col2, m_col3, m_col4 = st.columns(4, gap="small")
+            
+            # กล่องที่ 1: ราคาปัจจุบัน
+            with m_col1:
+                price_color = "#10B981" if price_change_pct >= 0 else "#EF4444"
+                price_arrow = "▲" if price_change_pct >= 0 else "▼"
+                st.markdown(f"""
+                    <div class="premium-metric-card">
+                        <div class="metric-label">💵 ราคาปัจจุบัน (USD)</div>
+                        <div class="metric-value">${current_price:.2f}</div>
+                        <div class="metric-delta" style="color: {price_color};">{price_arrow} {abs(price_change_pct):.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # กล่องที่ 2: ผลตอบแทน 1 ปี
+            with m_col2:
+                st.markdown(f"""
+                    <div class="premium-metric-card">
+                        <div class="metric-label">📈 ผลตอบแทนรอบ 1 ปี</div>
+                        <div class="metric-value">{return_1y_pct:+.2f}%</div>
+                        <div class="metric-delta" style="color: {return_1y_color};">▲ ประสิทธิภาพย้อนหลัง 1 ปี</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            # กล่องที่ 3: ดัชนี RSI
+            with m_col3:
+                st.markdown(f"""
+                    <div class="premium-metric-card">
+                        <div class="metric-label">⚡ ดัชนี RSI (14 วัน)</div>
+                        <div class="metric-value">{rsi_curr:.2f}</div>
+                        <div class="metric-delta" style="color: {rsi_text_color};">{rsi_metric_label}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            # กล่องที่ 4: ระบบแนะนำการลงทุน (✨ เพิ่มระบบ Neon Glow แผ่ออร่าตามสีคำแนะนำโดยอัตโนมัติ)
+            with m_col4: 
+                st.markdown(f"""
+                    <div class="premium-metric-card" style="border-left: 5px solid {advice_color}; padding-left: 16px; box-shadow: 0 0 15px {advice_color}1a;">
+                        <div class="metric-label" style="color: {advice_color}; font-weight: 700;">🤖 ระบบแนะนำการลงทุน</div>
+                        <div class="metric-value" style="font-size: 1.35rem; font-weight: 700; margin-top: 6px; color: var(--text-color);">{advice_text}</div>
+                        <div class="metric-delta" style="opacity: 0.5;">วิเคราะห์เทรนด์แบบระบบควอนต์</div>
+                    </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("---")
-            col1, col2 = st.columns([1.1, 1.2])
+            col1, col2 = st.columns([1.0, 1.3]) 
             
             with col1:
                 with st.container(border=True):
                     if is_etf:
                         st.subheader("📋 ข้อมูลและขนาดกองทุน")
-                        st.markdown(f"**Total Assets (ขนาดกองทุน)** | `{format_number(info.get('totalAssets', 0))}`\n\n**ราคา NAV (มูลค่าจริง)** | `${info.get('navPrice', current_price):.2f}`\n\n**ผู้บริหารจัดการกองทุน** | `{info.get('fundFamily', '-')}`")
+                        st.markdown(f"""
+                            <div class="financial-row"><span class="financial-label">Total Assets (ขนาดกองทุน)</span><span class="financial-value">{format_number(info.get('totalAssets', 0))}</span></div>
+                            <div class="financial-row"><span class="financial-label">ราคา NAV (มูลค่าจริง)</span><span class="financial-value">${info.get('navPrice', current_price):.2f}</span></div>
+                            <div class="financial-row"><span class="financial-label">ผู้บริหารจัดการกองทุน</span><span class="financial-value">{info.get('fundFamily', '-')}</span></div>
+                        """, unsafe_allow_html=True)
                     else:
                         st.subheader("📋 ปัจจัยพื้นฐาน & งบการเงิน")
                         net_income, profit_margin, rev_growth = info.get('netIncomeToCommon', 0), info.get('profitMargins', 0)*100 if info.get('profitMargins') else 0, info.get('revenueGrowth', 0)*100 if info.get('revenueGrowth') else 0
                         trailing_pe, eps_trailing = info.get('trailingPE', 0), info.get('trailingEps', 0)
                         total_cash, total_debt = info.get('totalCash', 0) or 0, info.get('totalDebt', 0) or 0
-                        st.markdown(f"**Market Cap (มูลค่าบริษัท)** | `{format_number(info.get('marketCap', 0))}`\n\n**รายได้รวมทั้งหมด** | `{format_number(info.get('totalRevenue', 0))}`\n\n**การเติบโตของรายได้ (YoY)** | :{'green' if rev_growth>=0 else 'red'}[{rev_growth:.2f}%]\n\n**รายได้สุทธิ (กำไร/ขาดทุน)** | :{'green' if net_income>=0 else 'red'}[{format_number(net_income)}]\n\n**อัตรากำไรสุทธิ (%)** | :{'green' if profit_margin>=0 else 'red'}[{profit_margin:.2f}%]\n\n**กำไรต่อหุ้น (EPS)** | :{'green' if eps_trailing>=0 else 'red'}[{eps_trailing:.2f}]\n\n**P/E Ratio** | `{trailing_pe:.2f}`" if trailing_pe else "**P/E Ratio** | `N/A`")
-                        st.markdown(f"**PEG Ratio** | `{info.get('pegRatio', '-'):.2f}`" if info.get('pegRatio') else "**PEG Ratio** | `N/A`")
-                        st.markdown(f"**คลังเงินสดรวมทั้งหมด** | `🟢 {format_number(total_cash)}`" if total_cash > 0 else "**คลังเงินสดรวมทั้งหมด** | `-`")
-                        st.markdown(f"**ภาระหนี้สินทั้งหมด** | :{'green' if total_cash>=total_debt else 'red'}[**{format_number(total_debt)} {'🟢' if total_cash>=total_debt else '⚠️'}**]")
+                        
+                        inc_color = '#10B981' if net_income>=0 else '#EF4444'
+                        margin_color = '#10B981' if profit_margin>=0 else '#EF4444'
+                        growth_color = '#10B981' if rev_growth>=0 else '#EF4444'
+                        debt_color = '#10B981' if total_cash>=total_debt else '#EF4444'
+                        debt_suffix = ' 🟢' if total_cash>=total_debt else ' ⚠️'
+
+                        st.markdown(f"""
+                            <div class="financial-row"><span class="financial-label">Market Cap (มูลค่าบริษัท)</span><span class="financial-value">{format_number(info.get('marketCap', 0))}</span></div>
+                            <div class="financial-row"><span class="financial-label">รายได้รวมทั้งหมด</span><span class="financial-value">{format_number(info.get('totalRevenue', 0))}</span></div>
+                            <div class="financial-row"><span class="financial-label">การเติบโตของรายได้ (YoY)</span><span class="financial-value" style="color: {growth_color};">{rev_growth:.2f}%</span></div>
+                            <div class="financial-row"><span class="financial-label">รายได้สุทธิ (กำไร/ขาดทุน)</span><span class="financial-value" style="color: {inc_color};">{format_number(net_income)}</span></div>
+                            <div class="financial-row"><span class="financial-label">อัตรากำไรสุทธิ (%)</span><span class="financial-value" style="color: {margin_color};">{profit_margin:.2f}%</span></div>
+                            <div class="financial-row"><span class="financial-label">กำไรต่อหุ้น (EPS)</span><span class="financial-value">{eps_trailing:.2f}</span></div>
+                            <div class="financial-row"><span class="financial-label">P/E Ratio</span><span class="financial-value">{f'{trailing_pe:.2f}' if trailing_pe else 'N/A'}</span></div>
+                            <div class="financial-row"><span class="financial-label">PEG Ratio</span><span class="financial-value">{f"{info.get('pegRatio', '-'):.2f}" if info.get('pegRatio') else 'N/A'}</span></div>
+                            <div class="financial-row"><span class="financial-label">คลังเงินสดรวมทั้งหมด</span><span class="financial-value" style="color: #10B981;">{format_number(total_cash)}</span></div>
+                            <div class="financial-row"><span class="financial-label">ภาระหนี้สินทั้งหมด</span><span class="financial-value" style="color: {debt_color};">{format_number(total_debt)}{debt_suffix}</span></div>
+                        """, unsafe_allow_html=True)
                 
                 with st.container(border=True):
                     st.subheader("💰 นโยบายการจ่ายเงินปันผล")
-                    st.markdown(f"**เงินปันผลรวมรอบปีล่าสุด** | `${dividend_rate:.2f}`" if isinstance(dividend_rate, (int, float)) and dividend_rate > 0 else f"**เงินปันผลรวมรอบปี** | `{dividend_rate}`")
-                    st.markdown(f"**อัตราผลตอบแทนปันผล (%)** | `🟢 {dividend_yield:.2f}%`" if dividend_yield else "**อัตราผลตอบแทนปันผล (%)** | `-`")
-                    st.markdown(f"**วันที่ขึ้นเครื่องหมายปันผล (Ex-Date)** | `{ex_div_date}`")
+                    st.markdown(f"""
+                        <div class="financial-row"><span class="financial-label">เงินปันผลรวมรอบปีล่าสุด</span><span class="financial-value">{f"${dividend_rate:.2f}" if isinstance(dividend_rate, (int, float)) and dividend_rate > 0 else dividend_rate}</span></div>
+                        <div class="financial-row"><span class="financial-label">อัตราผลตอบแทนปันผล (%)</span><span class="financial-value" style="color: #10B981;">{f"{dividend_yield:.2f}%" if dividend_yield else "-"}</span></div>
+                        <div class="financial-row"><span class="financial-label">วันที่ขึ้นเครื่องหมายปันผล (Ex-Date)</span><span class="financial-value">{ex_div_date}</span></div>
+                    """, unsafe_allow_html=True)
             
             with col2:
                 with st.container(border=True):
                     st.subheader("⚡ กรอบราคากลยุทธ์แนวรับแนวต้าน")
-                    st.markdown(f"**Volume ซื้อขายวันนี้** | `{format_number(hist['Volume'].iloc[-1])}`\n\n**ดัชนีแรงซื้อขาย RSI (14 วัน)** | :{rsi_text_color}[**{rsi_curr:.2f} {rsi_metric_label}**]\n\n---\n\n**แนวรับ / แนวต้าน (ระยะสั้น 20 วัน)** | `${support_20d:.2f}` / `${resistance_20d:.2f}`\n\n**แนวรับ / แนวต้าน (ระยะยาว 1 ปี)** | `${support_1y:.2f}` / `${resistance_1y:.2f}`")
                     target_price = info.get('targetMedianPrice')
-                    if target_price: st.markdown(f"**ราคาเป้าหมายโดยเฉลี่ย (Wall Street)** | `${target_price:.2f}` (Upside คงเหลือ: :{'green' if ((target_price - current_price) / current_price) * 100>=0 else 'red'}[**{((target_price - current_price) / current_price) * 100:+.2f}%**])")
+                    upside_html = ""
+                    if target_price:
+                        upside_pct = ((target_price - current_price) / current_price) * 100
+                        up_color = '#10B981' if upside_pct >= 0 else '#EF4444'
+                        upside_html = f'<div class="financial-row"><span class="financial-label">ราคาเป้าหมายเฉลี่ย (Wall Street)</span><span class="financial-value">${target_price:.2f} (<span style="color:{up_color};">{upside_pct:+.2f}%</span>)</span></div>'
+                    
+                    st.markdown(f"""
+                        <div class="financial-row"><span class="financial-label">Volume ซื้อขายวันนี้</span><span class="financial-value">{format_number(hist['Volume'].iloc[-1])}</span></div>
+                        <div class="financial-row"><span class="financial-label">ดัชนีแรงซื้อขาย RSI (14 วัน)</span><span class="financial-value" style="color: {rsi_text_color};">{rsi_curr:.2f} ({rsi_metric_label})</span></div>
+                        <div class="financial-row"><span class="financial-label">แนวรับ / แนวต้าน (ระยะสั้น 20 วัน)</span><span class="financial-value">${support_20d:.2f} / ${resistance_20d:.2f}</span></div>
+                        <div class="financial-row"><span class="financial-label">แนวรับ / แนวต้าน (ระยะยาว 1 ปี)</span><span class="financial-value">${support_1y:.2f} / ${resistance_1y:.2f}</span></div>
+                        {upside_html}
+                    """, unsafe_allow_html=True)
                 
                 with st.container(border=True):
-                    st.subheader("📐 ด่านจิตวิทยาคัดกรองการย่อตัว (Fibonacci)")
-                    st.markdown(f"**แนวรับแรก (38.2% - ย่อตัวระยะสั้น)** | `${fib_382:.2f}`\n\n**แนวรับสำคัญ (50.0% - ด่านวัดใจ)** | `${fib_500:.2f}`\n\n**แนวรับแข็งแกร่ง (61.8% - โซนทองคำ)** | `${fib_618:.2f}`")
+                    st.subheader("📐 โซนแนวรับทางจิตวิทยา (Fibonacci Retracement)")
+                    st.markdown(f"""
+                        <div class="financial-row"><span class="financial-label">แนวรับแรก (38.2% - โซนย่อตัวระยะสั้น)</span><span class="financial-value" style="color: #10B981;">${fib_382:.2f}</span></div>
+                        <div class="financial-row"><span class="financial-label">แนวรับสำคัญ (50.0% - จุดตัดสินแนวโน้มหลัก)</span><span class="financial-value" style="color: #F59E0B;">${fib_500:.2f}</span></div>
+                        <div class="financial-row"><span class="financial-label">แนวรับแข็งแกร่ง (61.8% - โซนช้อนซื้อกลุ่มสถาบัน)</span><span class="financial-value" style="color: #3B82F6;">${fib_618:.2f}</span></div>
+                    """, unsafe_allow_html=True)
                 
                 with st.container(border=True):
                     st.subheader("🛡️ เส้นค่าเฉลี่ยเทรนด์ราคา (Moving Averages)")
@@ -265,23 +425,44 @@ if ticker_input:
                     with ma_col1: st.markdown(f"**EMA 20 (สั้น)**\n`${ema20_curr:.2f}`")
                     with ma_col2: st.markdown(f"**EMA 50 (กลาง)**\n`${ema50_curr:.2f}`")
                     with ma_col3: st.markdown(f"**SMA 200 (ใหญ่)**\n`${sma200_curr:.2f}`")
-                    fig = go.Figure(data=[go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='ราคา')])
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA20'], mode='lines', line=dict(color='orange', width=1), name='EMA20'))
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA50'], mode='lines', line=dict(color='red', width=1.5), name='EMA50'))
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['SMA200'], mode='lines', line=dict(color='blue', width=2, dash='dash'), name='SMA200'))
-                    fig.update_layout(xaxis_rangeslider_visible=False, height=250, margin=dict(l=5, r=5, t=5, b=5))
-                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    fig = go.Figure(data=[go.Candlestick(
+                        x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='ราคา',
+                        increasing_line_color='#10B981', decreasing_line_color='#EF4444',
+                        increasing_fillcolor='rgba(16, 185, 129, 0.15)', decreasing_fillcolor='rgba(239, 68, 68, 0.15)'
+                    )])
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA20'], mode='lines', line=dict(color='#F59E0B', width=1.5), name='EMA20'))
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA50'], mode='lines', line=dict(color='#EF4444', width=1.5), name='EMA50'))
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['SMA200'], mode='lines', line=dict(color='#3B82F6', width=2, dash='dash'), name='SMA200'))
+                    
+                    fig.update_layout(
+                        xaxis_rangeslider_visible=False, height=280, margin=dict(l=5, r=5, t=5, b=5),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        xaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.06)'),
+                        yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.06)'),
+                        dragmode='pan' 
+                    )
+                    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
 
             if news_items:
                 st.markdown("---")
                 st.subheader("📰 สรุปข่าวเด่นล่าสุด (Live Stock News)")
                 for it in news_items:
                     translated_url = f"https://translate.google.com/translate?sl=en&tl=th&u={requests.utils.quote(it['link'])}"
-                    with st.container(border=True):
-                        st.markdown(f"**[{it['thai_title']}]({it['link']})**")
-                        st.markdown(f"<p style='font-size: 0.95rem; color: var(--text-color); opacity: 0.85;'>{it['thai_summary'] if it['thai_summary'] else 'คลิกเพื่ออ่านเนื้อหาเต็ม...'}</p>", unsafe_allow_html=True)
-                        st.caption(f"🕒 **เวลา:** {it['time']} | ✍️ สำนักข่าว: {it['pub']} | 📝 ต้นฉบับ: {it['title']}")
-                        st.markdown(f"[🇹🇭 คลิกอ่านฉบับเต็มแปลไทย (ผ่าน Google Translate)]({translated_url})")
+                    st.markdown(f"""
+                        <div class="premium-news-card">
+                            <h4 style="margin-top:0; margin-bottom:10px;">
+                                <a href="{it['link']}" target="_blank" style="text-decoration:none; color:#1D4ED8;">{it['thai_title']}</a>
+                            </h4>
+                            <p style="font-size:0.95rem; color:var(--text-color); opacity:0.88; line-height:1.6; margin-bottom:14px; text-align:justify;">
+                                {it['thai_summary'] if it['thai_summary'] else 'ไม่มีข้อมูลสรุปคำโปรยข่าวเบื้องต้น กรุณาคลิกลิงก์ด้านล่างเพื่อเข้าสู่อ่านเนื้อหาฉบับเต็ม...'}
+                            </p>
+                            <div style="font-size:0.82rem; color:gray; border-top:1px solid var(--border-color); padding-top:10px;">
+                                🕒 <b>เวลาเผยแพร่:</b> {it['time']} | ✍️ สำนักข่าว: {it['pub']} | 📝 หัวข้อดั้งเดิม: <i>{it['title']}</i>
+                            </div>
+                            <a href="{translated_url}" target="_blank" class="premium-news-link">🇹🇭 แปลฉบับเต็มโดย Google Translate ↗</a>
+                        </div>
+                    """, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดทางเทคนิค: {e}")
