@@ -23,8 +23,8 @@ st.write("ระบบตรวจจับสัญญาณซื้อขา�
 
 ticker_input = st.text_input("สัญลักษณ์หุ้น หรือ ETF (เช่น NVDA, AMZN, RKLB, VOO):", value="AMZN").upper().strip()
 
-# --- 🔑 GEMINI API KEY ---
-GEMINI_API_KEY = "AIzaSyDwkBxFciJnGyhjqrUf36iNYSBfetKDFBA"
+# --- 🔑 GEMINI API KEY ตัวใหม่ล่าสุดของคุณเดฟ ---
+GEMINI_API_KEY = "AIzaSyAEPxylmPXleAr5hOZWi1gEQ-EVtojm4HI"
 
 def format_number(val):
     if val is None or pd.isna(val): return "-"
@@ -38,7 +38,7 @@ def clean_text(text):
     clean = re.sub('<.*?>', '', text) 
     return clean.replace('&quot;', '"').replace('&apos;', "'").replace('&amp;', '&').strip()
 
-@st.cache_data(ttl=1800, show_spinner=False) # 🧠 ท่าที่ 2: จำคำแปลไว้ 30 นาที ค้นซ้ำไม่ต้องรอ!
+@st.cache_data(ttl=1800, show_spinner=False) 
 def translate_google(text):
     if not text: return text
     try:
@@ -48,7 +48,7 @@ def translate_google(text):
     except: pass
     return text  
 
-@st.cache_data(ttl=1800, show_spinner=False) # 🧠 ท่าที่ 2: จำคำแปล Gemini ไว้ 30 นาทีเช่นกัน
+@st.cache_data(ttl=1800, show_spinner=False) 
 def translate_batch_gemini(texts_tuple):
     texts_list = list(texts_tuple)
     if not GEMINI_API_KEY or len(texts_list) == 0: return None
@@ -68,7 +68,6 @@ def translate_batch_gemini(texts_tuple):
 
 # 4. เริ่มระบบประมวลผลข้อมูล
 if ticker_input:
-    # ⚡ โหลดแค่ตัวเลขให้เสร็จไวที่สุด (ไม่รอแปลภาษา)
     with st.spinner('กำลังดึงข้อมูลตลาด (ใช้เวลาเพียงอึดใจ)...'):
         try:
             stock = yf.Ticker(ticker_input)
@@ -133,13 +132,10 @@ if ticker_input:
             elif rsi_curr <= 30.0: rsi_metric_label, rsi_text_color = "🟢 ปลอดภัย (ขายมากไป โซนช้อนซื้อ)", "green"
             else: rsi_metric_label, rsi_text_color = "🟡 ปกติ (อยู่ช่วงพักตัว 30-70)", "orange"
 
-            # ==========================================
-            # ⚡ ท่าที่ 1: วาด UI ส่วนข้อมูลตัวเลขและกราฟออกมาก่อนทันที!
-            # ==========================================
+            # แสดงผลส่วนข้อมูลตัวเลขและกราฟทันที
             st.write(f"### 📊 **{info.get('longName', ticker_input)}**")
             st.markdown(f"**ประเภทสินทรัพย์วิเคราะห์โดยบอต** | :{label_color}[**{asset_label}**]")
             
-            # จองพื้นที่ว่างไว้ใส่ "สรุปบริษัท" ทีหลัง (จะยังไม่หมุนโหลดตรงนี้)
             summary_placeholder = st.empty()
             
             m_col1, m_col2, m_col3, m_col4 = st.columns(4)
@@ -200,14 +196,11 @@ if ticker_input:
             st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลพื้นฐาน: {e}")
             st.stop()
 
-    # ==========================================
-    # 🧠 กระบวนการดึงข่าวและแปลภาษา (ทำเป็นลำดับสุดท้าย!)
-    # ==========================================
+    # กระบวนการดึงข่าวและแปลภาษา (ทำหลังบ้าน)
     st.markdown("---")
     st.subheader("📰 สรุปข่าวเด่นล่าสุด (Live Stock News)")
     
-    with st.spinner('✨ AI กำลังอ่านและแปลข่าวสารล่าสุดให้คุณ... (ผู้ใช้สามารถวิเคราะห์กราฟด้านบนรอได้เลย)'):
-        # 1. รวบรวมข่าว
+    with st.spinner('✨ AI กำลังอ่านและแปลข่าวสารล่าสุดให้คุณ...'):
         news_items = []
         try:
             for item in (stock.news or [])[:5]:
@@ -236,11 +229,10 @@ if ticker_input:
                         if p_date != 'ล่าสุด':
                             try: pub_time = datetime.strptime(p_date[5:25], "%d %b %Y %H:%M:%S").strftime('%d/%m/%Y %H:%M')
                             except: pub_time = p_date[:16]
-                        else: pub_time = "ล่าสุด"
+                        else: pub_time = "unicode"
                         if t and l: news_items.append({"title": t, "link": l, "pub": "Yahoo Finance (RSS)", "summary": clean_text(s), "time": pub_time})
             except: pass
 
-        # 2. ส่งให้ AI แปลแบบมัดรวม (ใส่ tuple เพื่อให้ระบบ Cache จำได้)
         texts_to_translate = []
         has_summary = 'longBusinessSummary' in info
         if has_summary: texts_to_translate.append(info['longBusinessSummary'])
@@ -253,7 +245,6 @@ if ticker_input:
             gemini_results = translate_batch_gemini(tuple(texts_to_translate))
             if not gemini_results: st.toast("⚠️ ไม่สามารถใช้ Gemini แปลได้ กำลังสลับไปใช้สำรอง", icon="🤖")
 
-        # 3. นำคำแปลกลับไปใส่ที่เดิม
         thai_biz_summary = ""
         idx = 0
         if has_summary:
@@ -270,9 +261,7 @@ if ticker_input:
                 it['thai_title'] = translate_google(it['title'])
                 it['thai_summary'] = translate_google(it['summary']) if it['summary'] else ""
 
-    # ==========================================
-    # เติมคำอธิบายบริษัทที่จองพื้นที่ไว้ด้านบน
-    # ==========================================
+    # เติมคำอธิบายบริษัทด้านบน
     if has_summary:
         with summary_placeholder.expander("📖 ดูข้อมูลลักษณะธุรกิจ (Company Summary)"):
             st.markdown(f"<p style='color: var(--text-color); font-size: 0.95rem; line-height: 1.6; text-align: justify;'>{thai_biz_summary}</p>", unsafe_allow_html=True)
@@ -288,9 +277,7 @@ if ticker_input:
                     if date_strs: st.info(f"📅 **Earnings Announcement:** วันประกาศงบการเงินงวดถัดไปโดยประมาณ: `{', '.join(date_strs)}` (โปรดระวังความผันผวนของราคา)")
             except: pass
 
-    # ==========================================
-    # วาดข่าวเด่นที่แปลเสร็จแล้วด้านล่างสุด
-    # ==========================================
+    # วาดกล่องข่าวสาร
     if news_items:
         for it in news_items:
             translated_url = f"https://translate.google.com/translate?sl=en&tl=th&u={requests.utils.quote(it['link'])}"
