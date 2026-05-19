@@ -466,3 +466,4 @@ if ticker_input:
 
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดทางเทคนิค: {e}")
+            
