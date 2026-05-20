@@ -34,7 +34,7 @@ st.markdown("""
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 122px; /* ล็อกความสูงเท่ากันทุกกล่อง */
+            min-height: 122px; 
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .premium-metric-card:hover {
@@ -76,7 +76,7 @@ st.markdown("""
             border-radius: 6px;
         }
         .financial-row:hover {
-            background-color: rgba(59, 130, 246, 0.04); /* ไฮไลต์สีฟ้าใสเวลาเมาส์ชี้ */
+            background-color: rgba(59, 130, 246, 0.04); 
         }
         .financial-row:last-child {
             border-bottom: none;
@@ -302,6 +302,19 @@ if ticker_input:
             if has_summary:
                 with st.expander("📖 ดูข้อมูลลักษณะธุรกิจ (Company Summary)"):
                     st.markdown(f"<p style='color: var(--text-color); font-size: 0.95rem; line-height: 1.6; text-align: justify;'>{thai_biz_summary}</p>", unsafe_allow_html=True)
+                    
+                    # ✨ กู้คืนโค้ดวันประกาศงบการเงินมาใส่ในกล่องนี้เรียบร้อยครับ! ✨
+                    try:
+                        earnings_dates, cal = [], stock.calendar
+                        if isinstance(cal, dict) and 'Earnings Date' in cal: earnings_dates = cal['Earnings Date']
+                        elif hasattr(cal, 'index') and 'Earnings Date' in cal.index: earnings_dates = cal.loc['Earnings Date'].values
+                        if not earnings_dates:
+                            n_earn = info.get('earningsTimestamp') or info.get('earningsTimestampStart')
+                            if n_earn: earnings_dates = [datetime.fromtimestamp(n_earn)]
+                        if earnings_dates:
+                            date_strs = list(dict.fromkeys([d.strftime('%d-%m-%Y') if hasattr(d, 'strftime') else (datetime.fromtimestamp(d).strftime('%d-%m-%Y') if isinstance(d, (int, float)) and d > 0 else str(d)[:10]) for d in earnings_dates if d and not str(d).startswith('NaT')]))
+                            if date_strs: st.info(f"📅 **Earnings Announcement:** วันประกาศงบการเงินงวดถัดไปโดยประมาณ: `{', '.join(date_strs)}` (โปรดระวังความผันผวนของราคา)")
+                    except: pass
 
             # คอลัมน์แถวบนบีบกระชับชิดติดกัน (Compact Grid)
             m_col1, m_col2, m_col3, m_col4 = st.columns(4, gap="small")
@@ -338,7 +351,7 @@ if ticker_input:
                     </div>
                 """, unsafe_allow_html=True)
             
-            # กล่องที่ 4: ระบบแนะนำการลงทุน (✨ เพิ่มระบบ Neon Glow แผ่ออร่าตามสีคำแนะนำโดยอัตโนมัติ)
+            # กล่องที่ 4: ระบบแนะนำการลงทุน 
             with m_col4: 
                 st.markdown(f"""
                     <div class="premium-metric-card" style="border-left: 5px solid {advice_color}; padding-left: 16px; box-shadow: 0 0 15px {advice_color}1a;">
@@ -466,4 +479,3 @@ if ticker_input:
 
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดทางเทคนิค: {e}")
-            
